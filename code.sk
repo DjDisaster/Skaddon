@@ -1,0 +1,60 @@
+# This is extremely dumb.
+# Dont use this please.
+# Made by DjDisaster
+
+import:
+	com.btk5h.skriptmirror.util.lookup.LookupGetter
+	java.nio.charset.StandardCharsets
+	java.nio.file.Files
+	java.io.File
+	javax.tools.ToolProvider
+	java.util.ArrayList
+	org.bukkit.Bukkit
+	java.lang.Class
+on load:
+	set {TempPath} to "plugins/Skript/temp/"
+	add 1 to {Reloads}
+# Return type: Class
+function Compile(className: string, code: string, imports: strings="") :: javaobject:
+	set {_import} to ""
+	loop {_imports::*}:
+		set {_imports::%loop-index%} to "import %loop-value%;%nl%"
+	if size of {_imports::*} >= 1:
+		set {_import} to join {_imports::*}
+	set {_package} to "package com.btk5h.skriptmirror.util.lookup;%nl%%{_import}%%nl%class %{_className}% {"
+	set {_code} to join {_package}, {_code}, " %nl%}"
+
+	set {_source} to new File({TempPath}, "%{_className}%.java")
+	
+	{_source}.getParentFile().mkdirs()
+	{_source}.createNewFile()
+	broadcast "code: %{_code}%"
+	Files.write({_source}.toPath(), {_code}.getBytes(StandardCharsets.UTF_8))
+	
+	set {_options} to new ArrayList()
+	{_options}.add("-classpath")
+	{_options}.add("plugins/Skript/libs/spigot-api.jar")
+	
+	
+	set {_compiler} to ToolProvider.getSystemJavaCompiler()
+	set {_fileManager} to {_compiler}.getStandardFileManager(null, null, null)
+	set {_compilationUnits} to {_fileManager}.getJavaFileObjects({_source})
+	set {_task} to {_compiler}.getTask(null, {_fileManager}, null, {_options}, null, {_compilationUnits})
+	set {_taskResult} to {_task}.call()
+	set {_classFilePath} to new File({TempPath}, "%{_className}%.class")
+	set {_bytecode} to Files.readAllBytes({_classFilePath}.toPath())
+	set {_lookup} to LookupGetter.getLookup()
+	set {_definedClass} to {_lookup}.defineClass({_bytecode})
+	broadcast "CLZZ: %{_definedClass}%"
+	return {_definedClass}
+
+
+	
+effect do cool stuff:
+	parse:
+		set {_code} to "public Test%{Reloads}%() {}%nl% public static void test() { Bukkit.broadcastMessage(""hello world""); } "	
+		set {_result} to Compile("Test%{Reloads}%", {_code}, "org.bukkit.Bukkit")
+		set {_method} to {_result}.getDeclaredMethods()[0]
+		continue
+	trigger:
+		{_method}.invoke({_result})
